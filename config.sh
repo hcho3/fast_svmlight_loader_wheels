@@ -11,6 +11,12 @@ function pre_build {
   
   # 1. Build fast_svmlight_loader
   ROOTDIR=$PWD
+  if [ -n "$IS_OSX" ]
+  then
+    # On Mac OS X, install essential build tools
+    brew update 1>&2
+    brew install autoconf libtool curl gcc@7 1>&2
+  fi
   git submodule update --init --recursive   # fetch all submodules
   mkdir -p fast_svmlight_loader/build
   cd fast_svmlight_loader/build
