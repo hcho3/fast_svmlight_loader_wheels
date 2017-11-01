@@ -10,6 +10,7 @@ function pre_build {
   # Runs in the root directory of this repository.
   
   # 1. Build fast_svmlight_loader
+  ROOTDIR=$PWD
   git submodule update --init --recursive   # fetch all submodules
   mkdir -p fast_svmlight_loader/build
   cd fast_svmlight_loader/build
