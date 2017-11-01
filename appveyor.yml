@@ -97,4 +97,4 @@ artifacts:
 
 on_success:
   - pip install awscli
-  - for %%f in (python\dist\*.whl) do (aws s3 cp "%%f" s3://fast_svmlight_loader_wheels/ --acl public-read)
+  - for %%f in (python\dist\*.whl) do (aws s3 cp "%%f" s3://fast-svmlight-loader-wheels/ --acl public-read)
