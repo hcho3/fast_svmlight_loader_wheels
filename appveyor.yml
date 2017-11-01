@@ -1,0 +1,100 @@
+environment:
+  global:
+    REPO_DIR: fast_svmlight_loader
+    PACKAGE_NAME: fast_svmlight_loader
+    BUILD_DEPENDS: "numpy scipy"
+    TEST_DEPENDS: "numpy scipy"
+    AWS_ACCESS_KEY_ID: AKIAJPEC76RDUVCFL2TQ
+    AWS_SECRET_ACCESS_KEY:
+      secure: ofeMKAxHzzw8LAwaADZ3P4eAuAohZCat3QsJYS8MOinAejkHkuCxvjYfJg+DbX5g
+
+    # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
+    # /E:ON and /V:ON options are not enabled in the batch script intepreter
+    # See: http://stackoverflow.com/a/13751649/163740
+    CMD_IN_ENV: "cmd /E:ON /V:ON /C %APPVEYOR_BUILD_FOLDER%\\multibuild\\ci\\appveyor\\windows_sdk.cmd"
+
+  matrix:
+    - PYTHON: "C:\\Miniconda"
+      PYTHON_VERSION: "2.7"
+      PYTHON_ARCH: "32"
+    - PYTHON: "C:\\Miniconda-x64"
+      PYTHON_VERSION: "2.7"
+      PYTHON_ARCH: "64"
+    - PYTHON: "C:\\Miniconda3"
+      PYTHON_VERSION: "3.4"
+      PYTHON_ARCH: "32"
+    - PYTHON: "C:\\Miniconda3-x64"
+      PYTHON_VERSION: "3.4"
+      PYTHON_ARCH: "64"
+    - PYTHON: "C:\\Miniconda35"
+      PYTHON_VERSION: "3.5"
+      PYTHON_ARCH: "32"
+    - PYTHON: "C:\\Miniconda35-x64"
+      PYTHON_VERSION: "3.5"
+      PYTHON_ARCH: "64"
+    - PYTHON: "C:\\Miniconda36"
+      PYTHON_VERSION: "3.6"
+      PYTHON_ARCH: "32"
+    - PYTHON: "C:\\Miniconda36-x64"
+      PYTHON_VERSION: "3.6"
+      PYTHON_ARCH: "64"
+
+# We always use a 64-bit machine, but can build x86 distributions
+# with the PYTHON_ARCH variable.
+platform:
+    - x64
+
+image: Visual Studio 2017
+
+matrix:
+    fast_finish: true
+
+install:
+    # Fetch submodules
+    - git submodule update --init --recursive
+
+    # Install miniconda
+    - ps: .\\multibuild\\ci\\appveyor\\install.ps1
+    - set PATH=%PYTHON%;%PYTHON%\Scripts;%PYTHON%\Library\bin;%PATH%
+    - conda info
+
+    # Check that we have the expected version and architecture for Python
+    - python --version
+    - python -c "import struct; print(struct.calcsize('P') * 8)"
+
+build_script:
+    # Install build requirements
+    - conda install --yes %BUILD_DEPENDS%
+
+    # Build C++ library
+    - cd %REPO_DIR%
+    - mkdir build
+    - cd build
+    - if [%PYTHON_ARCH%]==[32] cmake .. -G"Visual Studio 15 2017"
+    - if [%PYTHON_ARCH%]==[32] msbuild fast_svmlight_loader.sln /p:Configuration=Release /p:Platform=Win32 /m
+    - if [%PYTHON_ARCH%]==[64] cmake .. -G"Visual Studio 15 2017 Win64"
+    - if [%PYTHON_ARCH%]==[64] msbuild fast_svmlight_loader.sln /p:Configuration=Release /m
+
+    # build wheel:
+    - cd ..\python
+    - "%CMD_IN_ENV% python setup.py bdist_wheel"
+    - dir dist
+
+test_script:
+    # create test env
+    - conda create --yes -n test_env python=%PYTHON_VERSION% %TEST_DEPENDS%
+    - activate test_env
+
+    # install from wheel
+    - pip install --no-index --find-links dist/ %PACKAGE_NAME%
+
+    # run test from installed wheel.
+    - cd ..
+    - "%CMD_IN_ENV% python -c \"import fast_svmlight_loader\""
+
+artifacts:
+    - path: "%REPO_DIR%\\python\\dist\\*"
+
+on_success:
+  - pip install awscli
+  - for %%f in (python\dist\*.whl) do (aws s3 cp "%%f" s3://fast_svmlight_loader_wheels/ --acl public-read)

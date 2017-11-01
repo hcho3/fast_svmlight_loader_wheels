@@ -1,0 +1,99 @@
+env:
+  global:
+    - REPO_DIR=fast_svmlight_loader
+    # pip dependencies to _build_ your project
+    - BUILD_DEPENDS="numpy scipy"
+    # pip dependencies to _test_ your project.  Include any dependencies
+    # that you need, that are also specified in BUILD_DEPENDS, this will be
+    # a separate install.
+    - TEST_DEPENDS="numpy scipy"
+    - PLAT=x86_64
+    - UNICODE_WIDTH=32
+
+language: python
+# The travis Python version is unrelated to the version we build and test
+# with.  This is set with the MB_PYTHON_VERSION variable.
+python: 3.5
+sudo: required
+dist: trusty
+services: docker
+
+matrix:
+  exclude:
+    # Exclude the default Python 3.5 build
+    - python: 3.5
+  include:
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=2.7
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=2.7
+        - UNICODE_WIDTH=16
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=2.7
+        - PLAT=i686
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=2.7
+        - PLAT=i686
+        - UNICODE_WIDTH=16
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.4
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.4
+        - PLAT=i686
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.5
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.5
+        - PLAT=i686
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.6
+    - os: linux
+      env:
+        - MB_PYTHON_VERSION=3.6
+        - PLAT=i686
+    - os: osx
+      language: generic
+      env:
+        - MB_PYTHON_VERSION=2.7
+    - os: osx
+      language: generic
+      env:
+        - MB_PYTHON_VERSION=3.4
+    - os: osx
+      language: generic
+      env:
+        - MB_PYTHON_VERSION=3.5
+    - os: osx
+      language: generic
+      env:
+        - MB_PYTHON_VERSION=3.6
+
+before_install:
+  - cd multibuild && git apply ../multibuild.patch && cd ..
+  - source multibuild/common_utils.sh
+  - source multibuild/travis_steps.sh
+  - before_install
+
+install:
+  - source config.sh
+  - build_wheel $REPO_DIR/python $PLAT
+
+script:
+  - ls -lh wheelhouse
+  - install_run $PLAT
+
+after_success:
+  # if linux, use manylinux1 platform tag
+  - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then for file in ${TRAVIS_BUILD_DIR}/wheelhouse/*.whl; do mv "${file}" "${file/linux/manylinux1}"; done; fi
+  # Upload wheels to S3
+  - pip install awscli
+  - for file in ${TRAVIS_BUILD_DIR}/wheelhouse/*.whl; do aws s3 cp "${file}" s3://fast_svmlight_loader_wheels/ --acl public-read; done
